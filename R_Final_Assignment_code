@@ -1,0 +1,208 @@
+
+#install.packages("corrplot")
+#install.packages("ggplot2")
+#install.packages("magrittr")
+#install.packages("viridis")
+#install.packages("hrbrthemes")
+
+library(hrbrthemes)
+library(viridis)
+library(magrittr)
+library(tidyverse)
+library(modelsummary)
+library(fixest)
+library(dbplyr)
+library(ggplot2)
+library(corrplot)
+library(viridis)
+library(gridExtra)
+
+
+#The market research team at AdRight is assigned the task to identify the profile of
+#the typical customer for each treadmill product offered by CardioGood Fitness. 
+#The market research team decides to investigate whether there are differences across the product
+#lines with respect to customer characteristics. The team decides to collect
+#data on individuals who purchased a treadmill at a CardioGoodFitness retail store 
+#during the prior three months.
+#Perform descriptive analytics to create a customer 
+#profile for each CardioGood Fitness treadmill product line.
+
+df <- read.csv(file = 'cardio_fitness.csv')
+
+
+df %>%
+  filter(!is.na(Age) & !is.na(Education) & is.na(Fitness)&is.na(Usage) & is.na(Income) & is.na(Miles))
+
+
+view_summary<-datasummary(df$Age + df$Education + df$Usage + df$Fitness +df$Income +df$Miles  ~ Mean + Median + SD + Min + Max + P25 + P75 + N, 
+            data = df) 
+
+view_summary
+
+#data_summary
+data_summary <- function(data) {
+  data %>%
+    select_if(is.numeric) %>%
+    summarize_all(list(mean = mean,min = min, max = max))
+}
+
+group_by_gender<-df %>% 
+  group_by(Product,Gender) %>% 
+  data_summary( )
+group_by_gender
+
+group_by_marital_status<-df %>% 
+  group_by(Product,MaritalStatus) %>% 
+  data_summary( )
+group_by_marital_status
+
+# Age Group
+breaks <- c(0,25, 35, 45, Inf)
+age_groups <- cut(df$Age, breaks = breaks, labels = c("<=25", "26-35", "36-45", ">45"))
+
+
+# Female and male
+
+gender_v<-ggplot(df, aes(y = Usage, x = Gender)) +
+  geom_violin(linewidth=1,  width = 0.5, color = 'blue',
+              fill = 'Orange', trim = T, show.legend=F, alpha = 0.3) +
+  geom_boxplot(color = 'black', fill='lightblue',
+               size = 0.5, width = 0.1, alpha = 0.5,  outlier.shape = NA) +
+  labs(x='Gender', y='Usage')+
+  theme_bw()
+
+
+marital_box<-ggplot(df, aes(y = Usage, x = MaritalStatus)) +
+  geom_violin(linewidth=1,  width = 0.5, color = 'blue',
+              fill = 'lightyellow', trim = T, show.legend=F, alpha = 0.3) +
+  geom_boxplot(color = 'red', fill='pink',
+               size = 0.5, width = 0.1, alpha = 0.5,  outlier.shape = NA) +
+  labs(x='MaritalStatus', y='Usage')+
+  theme_bw()
+
+
+age_group_bx<-ggplot(df, aes(y = Usage, x = age_groups)) +
+  geom_violin(linewidth=1,  width = 0.5, color = 'blue',
+              fill = 'lightblue', trim = T, show.legend=F, alpha = 0.3) +
+  geom_boxplot(color = 'black', fill='lightblue',
+               size = 0.5, width = 0.1, alpha = 0.5,  outlier.shape = NA) +
+  labs(x='Age Group', y='Usage')+
+  theme_bw()
+
+age_group_bx<-ggplot(df, aes(y = Usage, x = age_groups)) +
+  geom_violin(linewidth=1,  width = 0.5, color = 'blue',
+              fill = 'lightblue', trim = T, show.legend=F, alpha = 0.3) +
+  geom_boxplot(color = 'black', fill='lightblue',
+               size = 0.5, width = 0.1, alpha = 0.5,  outlier.shape = NA) +
+  labs(x='Age Group', y='Usage')+
+  theme_bw()
+
+product_box<-ggplot(df, aes(y = Usage, x = Product)) +
+  geom_violin(linewidth=1,  width = 0.5, color = 'blue',
+              fill = 'lightblue', trim = T, show.legend=F, alpha = 0.3) +
+  geom_boxplot(color = 'black', fill='lightblue',
+               size = 0.5, width = 0.1, alpha = 0.5,  outlier.shape = NA) +
+  labs(x='Product', y='Usage')+
+  theme_bw()
+
+grid.arrange(product_box,gender_v,marital_box,age_group_bx, ncol=2)
+
+# Plot of Usage per week
+s1 <- ggplot(data = df, aes (x = Usage, y = Miles)) + geom_point( color = "slateblue2",size=1)+
+  labs(x = "Usage", y = "Miles") +
+  geom_smooth(method=lm,se=F, formula = y~x, color ="black", size=0.3)
+
+s2 <- ggplot(data = df, aes (x = Usage, y = Income)) + geom_point( color = "pink",size=1)+
+  labs(x = "Usage", y = "Income") +
+  geom_smooth(method=lm,se=F, formula = y~x)
+
+s3 <- ggplot(data = df, aes (x = Usage, y = Education)) + geom_point( color = "green",size=1)+
+  labs(x = "Usage", y = "Education") +
+  geom_smooth(method=lm,se=F, formula = y~x)
+
+
+s4 <- ggplot(data = df, aes (x = Usage, y = Fitness)) + geom_point( color = "blue",size=1)+
+  labs(x = "Usage", y = "Fitness") +
+  geom_smooth(method=lm,se=F, formula = y~x)
+
+
+grid.arrange(s1,s2,s3,s4, ncol = 2)
+
+
+# Plot
+
+# Graph on age group
+Usage_age_group<-ggplot(df, aes(fill = Gender, y = Usage, x = age_groups)) + 
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_fill_viridis(discrete = TRUE, option = "E", labels = c("Female", "Male")) +
+  ggtitle("Treadmil Usage per week ") +
+  facet_wrap(~Product)  +
+  theme(legend.position = "top") +
+  xlab("") 
+
+Usage_age_group
+
+# Graph
+Usage_g<-ggplot(df, aes(fill = Gender, y = Usage, x = MaritalStatus)) + 
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_fill_viridis(discrete = TRUE, option = "E", labels = c("Female", "Male")) +
+  ggtitle("Treadmil Usage per week ") +
+  facet_wrap(~Product) +
+  theme_ipsum() +
+  theme(legend.position = "top") +
+  xlab("") 
+
+# Graph
+Income_g<-ggplot(df, aes(fill = Gender, y = Income, x = MaritalStatus)) + 
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_fill_viridis(discrete = TRUE, option = "E", labels = c("Female", "Male")) +
+  ggtitle("Income") +
+  facet_wrap(~Product) +
+  theme_ipsum() +
+  theme(legend.position = "top") +
+  xlab("") 
+
+
+# Graph
+fitness_g<-ggplot(df, aes(fill = Gender, y = Fitness, x = MaritalStatus)) + 
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_fill_viridis(discrete = TRUE, option = "E", labels = c("Female", "Male")) +
+  ggtitle("Fitness Score") +
+  facet_wrap(~Product) +
+  theme_ipsum() +
+  theme(legend.position = "top") +
+  xlab("") 
+
+# Graph
+miles_g<-ggplot(df, aes(fill = Gender, y = Miles, x = MaritalStatus)) + 
+  geom_bar(position = "dodge", stat = "identity") +
+  scale_fill_viridis(discrete = TRUE, option = "E", labels = c("Female", "Male")) +
+  ggtitle("Average miles per week") +
+  facet_wrap(~Product) +
+  theme_ipsum() +
+  theme(legend.position = "top") +
+  xlab("") 
+
+
+# Combine the plots
+grid.arrange(Income_g, Usage_g, nrow = 1)
+grid.arrange(fitness_g, miles_g, nrow = 1)
+
+
+# Correlation Between numeric variables
+#You can also use the cor function to compute the Spearman rank correlation coefficient, which measures the monotonic 
+#relationship between two variables.
+
+cor(df[, unlist(lapply(df, is.numeric))])
+corrplot(cor(df[, unlist(lapply(df, is.numeric))]), type = "upper", tl.col = "black")
+
+
+# Regression
+
+Usage_Income <- feols(Usage ~ Income, data = df, vcov = 'hetero')
+Usage_Income
+Usage_Income_Education <- feols(Usage ~ Income+Education, data = df, vcov = 'hetero')
+Usage_Income_Education
+
+etable(Usage_Income,Usage_Income_Education)
+
